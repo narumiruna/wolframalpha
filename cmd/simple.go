@@ -8,6 +8,6 @@ import (
 
 func main() {
 	appID := os.Getenv("WOLFRAMALPHA_APP_ID")
-	w := simple.New(appID)
-	w.QueryFile("taiwan", "taiwan.jpg", nil)
+	c := simple.New(appID)
+	c.QueryFile("taiwan", "taiwan.jpg", nil)
 }
