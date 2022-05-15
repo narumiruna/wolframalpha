@@ -9,5 +9,5 @@ import (
 func main() {
 	appID := os.Getenv("WOLFRAMALPHA_APP_ID")
 	w := simple.New(appID)
-	w.QueryToFile("taiwan", "taiwan.jpg")
+	w.QueryFile("taiwan", "taiwan.jpg", nil)
 }

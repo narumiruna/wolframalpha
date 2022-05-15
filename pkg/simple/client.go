@@ -2,10 +2,9 @@ package simple
 
 import (
 	"fmt"
-	"io"
+	"io/ioutil"
 	"net/http"
 	"net/url"
-	"os"
 )
 
 const baseURL = "http://api.wolframalpha.com/v1/simple"
@@ -15,78 +14,84 @@ type RestClient struct {
 	client *http.Client
 
 	AppID string
-
-	Width    int    `json:"width"`
-	Fontsize int    `json:"fontsize"`
-	Units    string `json:"units"`
-	Timeout  int    `json:"timeout"`
 }
 
 func New(appID string) *RestClient {
 	return &RestClient{
-		client:   &http.Client{},
-		AppID:    appID,
-		Width:    400,
-		Fontsize: 14,
-		Units:    "metric",
-		Timeout:  5,
+		client: &http.Client{},
+		AppID:  appID,
 	}
 }
 
-func (r *RestClient) QueryParameters() url.Values {
+func (r *RestClient) GetParameters(input string, options *QueryOptions) url.Values {
 	params := url.Values{}
+
+	if input != "" {
+		params.Add("i", input)
+	}
 
 	if r.AppID != "" {
 		params.Add("appid", r.AppID)
 	}
 
-	if r.Width != 0 {
-		params.Add("width", fmt.Sprintf("%d", r.Width))
+	if options == nil {
+		return params
 	}
 
-	if r.Fontsize != 0 {
-		params.Add("fontsize", "16")
+	if options.Width != 0 {
+		params.Add("width", fmt.Sprintf("%d", options.Width))
+	}
+
+	if options.Fontsize != 0 {
+		params.Add("fontsize", fmt.Sprintf("%d", options.Fontsize))
+	}
+
+	if options.Units != "" {
+		params.Add("units", options.Units)
+	}
+
+	if options.Timeout != 0 {
+		params.Add("timeout", fmt.Sprintf("%d", options.Timeout))
 	}
 
 	return params
 }
 
-func (r *RestClient) NewRequest(input string) (*http.Request, error) {
+func (r *RestClient) NewRequest(params url.Values) (*http.Request, error) {
 	u, err := url.Parse(baseURL)
 	if err != nil {
 		panic(err)
 	}
 
-	params := r.QueryParameters()
-	params.Add("i", input)
-
-	u.RawQuery = params.Encode()
+	if params != nil {
+		u.RawQuery = params.Encode()
+	}
 
 	return http.NewRequest("GET", u.String(), nil)
 }
 
-func (w *RestClient) QueryToFile(input string, filename string) error {
-	req, err := w.NewRequest(input)
+func (c *RestClient) Query(input string, options *QueryOptions) ([]byte, error) {
+	params := c.GetParameters(input, options)
+
+	req, err := c.NewRequest(params)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	resp, err := w.client.Do(req)
+	resp, err := c.client.Do(req)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	defer resp.Body.Close()
 
-	file, err := os.Create(filename)
-	if err != nil {
-		return err
-	}
-	defer file.Close()
+	return ioutil.ReadAll(resp.Body)
+}
 
-	_, err = io.Copy(file, resp.Body)
+func (c *RestClient) QueryFile(input string, filename string, options *QueryOptions) error {
+	body, err := c.Query(input, options)
 	if err != nil {
 		return err
 	}
 
-	return nil
+	return ioutil.WriteFile(filename, body, 0644)
 }
